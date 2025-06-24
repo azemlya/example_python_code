@@ -1,0 +1,169 @@
+"""
+
+"""
+import itertools
+from pathlib import Path
+from typing import cast, Dict, List, Optional
+from collections import namedtuple
+from fs.errors import FSError
+from flask import jsonify
+from airflow import configuration
+from airflow_code_editor.commons import (
+    PLUGIN_NAME,
+    PLUGIN_DEFAULT_CONFIG,
+    ROOT_MOUNTPOUNT,
+)
+
+
+__all__ = [
+    'normalize_path',
+    'get_plugin_config',
+    'get_plugin_boolean_config',
+    'get_plugin_int_config',
+    'is_enabled',
+    'get_root_folder',
+    'error_message',
+    'prepare_api_response',
+    'always',
+]
+
+
+# Create a new section in the configuration.
+try:
+    configuration.conf.add_section(PLUGIN_NAME)
+except Exception:
+    pass
+
+
+def normalize_path(path: Optional[str]) -> str:
+    comps = (path or '/').split('/')
+    result: List[str] = []
+    for comp in comps:
+        if comp in ('', '.'):
+            pass
+        elif comp != '..' or (result and result[-1] == '..'):
+            result.append(comp)
+        elif result:
+            result.pop()
+    return '/'.join(result)
+
+
+def get_plugin_config(key: str) -> str:
+    "Get a plugin configuration/default for a given key"
+    return cast(str, configuration.conf.get(PLUGIN_NAME, key, fallback=PLUGIN_DEFAULT_CONFIG[key]))  # type: ignore
+
+
+def get_plugin_boolean_config(key: str) -> bool:
+    "Get a plugin boolean configuration/default for a given key"
+    return cast(
+        bool,
+        configuration.conf.getboolean(
+            PLUGIN_NAME, key, fallback=PLUGIN_DEFAULT_CONFIG[key]
+        ),
+    )  # type: ignore
+
+
+def get_plugin_int_config(key: str) -> int:
+    "Get a plugin int configuration/default for a given key"
+    return cast(
+        int,
+        configuration.conf.getint(
+            PLUGIN_NAME, key, fallback=PLUGIN_DEFAULT_CONFIG[key]
+        ),
+    )  # type: ignore
+
+
+def is_enabled() -> bool:
+    "Return true if the plugin is enabled in the configuration"
+    return get_plugin_boolean_config('enabled')
+
+
+def get_root_folder() -> Path:
+    "Return the configured root folder or Airflow DAGs folder"
+    return Path(
+        get_plugin_config('root_directory')
+        or cast(str, configuration.conf.get('core', 'dags_folder'))  # type: ignore
+    ).resolve()
+
+
+MountPoint = namedtuple('MountPoint', 'path default')
+
+
+def read_mount_points_config() -> Dict[str, MountPoint]:
+    "Return the plugin configuration"
+    path = str(get_root_folder())
+    config = {ROOT_MOUNTPOUNT: MountPoint(path=path, default=True)}
+
+    # Iterate over the configurations
+    for i in itertools.count():
+        # the first configuration doesn't have a suffix
+        if i == 0:
+            suffix = ''
+        else:
+            suffix = str(i)
+        try:
+            if not configuration.conf.has_option(PLUGIN_NAME, 'mount{}'.format(suffix)):
+                break
+            conf = configuration.conf.get(PLUGIN_NAME, 'mount{}'.format(suffix))
+            if conf is None:
+                break
+        except Exception:
+            break
+        try:
+            mount_conf = {}
+            for part in conf.split(','):
+                k, v = part.split('=')
+                mount_conf[k] = v
+            config[mount_conf['name']] = MountPoint(
+                path=mount_conf['path'], default=mount_conf['name'] == ROOT_MOUNTPOUNT
+            )
+        except Exception:
+            pass
+
+    # Old configuration format
+    for i in itertools.count():
+        # the first configuration doesn't have a suffix
+        if i == 0:
+            suffix = ''
+        else:
+            suffix = str(i)
+        try:
+            if not configuration.conf.has_option(
+                PLUGIN_NAME, 'mount{}_name'.format(suffix)
+            ):
+                break
+        except Exception:  # backports.configparser.NoSectionError and friends
+            break
+        name = configuration.conf.get(PLUGIN_NAME, 'mount{}_name'.format(suffix))
+        path = configuration.conf.get(PLUGIN_NAME, 'mount{}_path'.format(suffix))
+        config[name] = MountPoint(
+            path=path, default=mount_conf['name'] == ROOT_MOUNTPOUNT
+        )
+    return config
+
+
+def error_message(ex: Exception) -> str:
+    "Get exception error message"
+    if ex is None:
+        return ''
+    elif isinstance(ex, FSError):
+        return str(ex)
+    elif hasattr(ex, 'strerror'):
+        return ex.strerror
+    elif hasattr(ex, 'message'):
+        return ex.message
+    else:
+        return str(ex)
+
+
+def prepare_api_response(error_message=None, **kargs):
+    "Prepare API response (JSON)"
+    result = dict(kargs)
+    if error_message is not None:
+        result['error'] = {'message': error_message}
+    return jsonify(result)
+
+
+def always() -> bool:
+    "Always return True"
+    return True

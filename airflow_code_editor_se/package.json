@@ -1,0 +1,51 @@
+{
+  "name": "airflow-code-editor",
+  "version": "7.3.0",
+  "description": "A plugin for [Apache Airflow](https://github.com/apache/airflow) that allows you to edit DAGs in browser. It provides a file managing interface within specified directories and it can be used to edit and download your files. If git support is enabled, the DAGs are stored in a Git repository. You may use it to view Git history, review local changes and commit.",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andreax79/airflow-code-editor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/andreax79/airflow-code-editor/issues"
+  },
+  "homepage": "https://github.com/andreax79/airflow-code-editor#readme",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "watch": "vite build --watch",
+    "build": "vite build",
+    "test:unit": "vitest --environment jsdom",
+    "lint": "eslint src --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+  },
+  "dependencies": {
+    "@grapoza/vue-tree": "^5.0.0",
+    "axios": "^1.2.0",
+    "splitpanes": "^3.1.1",
+    "uuid": "^9.0.0",
+    "vue": "^3.3.4",
+    "vue-good-table-next": "^0.2.1",
+    "vue-simple-context-menu": "^4.0.4",
+    "vue-universal-modal": "^1.1.4"
+  },
+  "devDependencies": {
+    "@rushstack/eslint-patch": "^1.1.0",
+    "@vitejs/plugin-vue": "^3.0.1",
+    "@vue/eslint-config-prettier": "^7.0.0",
+    "@vue/test-utils": "^2.0.2",
+    "eslint": "^8.5.0",
+    "eslint-plugin-vue": "^9.0.0",
+    "jsdom": "^20.0.0",
+    "prettier": "^2.5.1",
+    "vite": "^3.2.7",
+    "vitest": "^0.25.3"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}
